@@ -37,7 +37,6 @@ const totalLapsEl = document.getElementById("total-laps");
 const currentTrackEl = document.getElementById("current-track");
 const prestigeEl = document.getElementById("prestige-level");
 const accountNameEl = document.getElementById("account-name");
-const lapTimeEl = document.getElementById("lap-time");
 const carListEl = document.getElementById("car-list");
 const trackListEl = document.getElementById("track-list");
 const offlineSummaryEl = document.getElementById("offline-summary");
@@ -370,27 +369,12 @@ const renderButtons = () => {
 const getFastestLapTime = () =>
   Math.min(...state.cars.map((car) => calculateLapTime(car)));
 
-const getLapTimeDisplay = () => {
-  if (state.sharedLapActive) {
-    return state.sharedLapDuration;
-  }
-  const queued = state.cars
-    .map((car, index) => (car.lapsRemaining > 0 ? index : null))
-    .filter((value) => value !== null);
-  if (queued.length > 0) {
-    return calculateSharedLapTime(queued);
-  }
-  return getFastestLapTime();
-};
-
 const render = () => {
   moneyEl.textContent = formatNumber(state.money);
   totalLapsEl.textContent = formatNumber(state.totalLaps);
   currentTrackEl.textContent = tracks[state.currentTrackIndex].name;
   prestigeEl.textContent = state.prestige;
   accountNameEl.textContent = account?.name || "Not signed in";
-  const lapTime = getLapTimeDisplay();
-  lapTimeEl.textContent = `${lapTime.toFixed(2)}s`;
 
   renderCars();
   renderTracks();
