@@ -30,6 +30,10 @@
           <span class="label">Prestige</span>
           <span id="prestige-level">0</span>
         </div>
+        <div>
+          <span class="label">Account</span>
+          <span id="account-name">Not signed in</span>
+        </div>
       </section>
 
       <main>
@@ -68,6 +72,16 @@
           <h2>Offline Progress</h2>
           <p id="offline-summary">Loading offline progress...</p>
         </section>
+
+        <section class="panel">
+          <h2>Cloud Save</h2>
+          <p>Progress can be synced to a Google Sheet for testing.</p>
+          <div class="card-actions inline">
+            <button id="sync-now" class="primary" type="button">Sync Now</button>
+            <button id="switch-account" type="button">Switch Account</button>
+          </div>
+          <p id="sync-status" class="hint">Cloud sync not configured.</p>
+        </section>
       </main>
     </div>
 
@@ -99,6 +113,24 @@
               <p>Increase how many laps this car can queue per click.</p>
             </div>
             <button id="car-gas-upgrade">Upgrade</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Create Account</h3>
+        </div>
+        <div class="modal-body">
+          <label class="form-field">
+            <span>Display name</span>
+            <input id="account-input" type="text" placeholder="Enter a name" />
+          </label>
+          <p class="hint">This name is used to save progress to the shared Google Sheet.</p>
+          <div class="card-actions inline">
+            <button id="save-account" class="primary" type="button">Save Account</button>
           </div>
         </div>
       </div>

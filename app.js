@@ -1,5 +1,9 @@
 const storageKey = "car-revolutions-save";
+const accountKey = "car-revolutions-account";
 const maxOfflineHours = 8;
+const googleSheetEndpoint = "";
+const googleSheetUrl =
+  "https://docs.google.com/spreadsheets/d/139cyi66IfTqUk8hShsivaWR4MA2Pck0a6qGTLZ7F7Nw/edit?usp=sharing";
 
 const baseCarCost = 50;
 const baseCarSpeedUpgradeCost = 60;
@@ -32,6 +36,7 @@ const moneyEl = document.getElementById("money");
 const totalLapsEl = document.getElementById("total-laps");
 const currentTrackEl = document.getElementById("current-track");
 const prestigeEl = document.getElementById("prestige-level");
+const accountNameEl = document.getElementById("account-name");
 const lapTimeEl = document.getElementById("lap-time");
 const carListEl = document.getElementById("car-list");
 const trackListEl = document.getElementById("track-list");
@@ -48,9 +53,16 @@ const closeModalButton = document.getElementById("close-modal");
 const carSpeedUpgradeButton = document.getElementById("car-speed-upgrade");
 const carIncomeUpgradeButton = document.getElementById("car-income-upgrade");
 const carGasUpgradeButton = document.getElementById("car-gas-upgrade");
+const syncNowButton = document.getElementById("sync-now");
+const switchAccountButton = document.getElementById("switch-account");
+const syncStatusEl = document.getElementById("sync-status");
+const accountModal = document.getElementById("account-modal");
+const accountInput = document.getElementById("account-input");
+const saveAccountButton = document.getElementById("save-account");
 
 let selectedCarIndex = null;
 let lastFrameTime = null;
+let account = null;
 
 const formatNumber = (value) => {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
@@ -106,6 +118,135 @@ const load = () => {
   }
 };
 
+const saveAccount = (data) => {
+  account = data;
+  localStorage.setItem(accountKey, JSON.stringify(data));
+  accountNameEl.textContent = data?.name || "Unknown";
+};
+
+const loadAccount = () => {
+  const stored = localStorage.getItem(accountKey);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch (error) {
+    console.warn("Failed to parse account data.", error);
+    return null;
+  }
+};
+
+const openAccountModal = () => {
+  accountModal.classList.remove("hidden");
+  accountModal.setAttribute("aria-hidden", "false");
+  accountInput.value = account?.name || "";
+  accountInput.focus();
+};
+
+const closeAccountModal = () => {
+  accountModal.classList.add("hidden");
+  accountModal.setAttribute("aria-hidden", "true");
+};
+
+const normalizeState = () => {
+  state.money = Number(state.money) || 0;
+  state.totalLaps = Number(state.totalLaps) || 0;
+  state.currentTrackIndex = Number(state.currentTrackIndex) || 0;
+  state.unlockedTracks = Number(state.unlockedTracks) || 1;
+  state.prestige = Number(state.prestige) || 0;
+  if (!Array.isArray(state.cars)) {
+    const count = Math.max(1, Number(state.cars) || 1);
+    state.cars = Array.from({ length: count }, () => ({
+      speedLevel: 0,
+      incomeLevel: 0,
+      gasLevel: 0,
+      lapsRemaining: 0,
+      lapProgress: 0,
+    }));
+  } else {
+    state.cars = state.cars.map((car) => ({
+      speedLevel: car.speedLevel || 0,
+      incomeLevel: car.incomeLevel || 0,
+      gasLevel: car.gasLevel || 0,
+      lapsRemaining: car.lapsRemaining || 0,
+      lapProgress: car.lapProgress || 0,
+    }));
+  }
+  if (state.cars.length === 0) {
+    state.cars = [
+      { speedLevel: 0, incomeLevel: 0, gasLevel: 0, lapsRemaining: 0, lapProgress: 0 },
+    ];
+  }
+  const maxTrackIndex = tracks.length - 1;
+  state.currentTrackIndex = Math.min(Math.max(state.currentTrackIndex, 0), maxTrackIndex);
+  state.unlockedTracks = Math.min(Math.max(state.unlockedTracks, 1), tracks.length);
+  state.sharedLapActive = Boolean(state.sharedLapActive);
+  state.sharedLapProgress = Number(state.sharedLapProgress) || 0;
+  state.sharedLapDuration = Number(state.sharedLapDuration) || 4;
+  state.sharedLapParticipants = Array.isArray(state.sharedLapParticipants)
+    ? state.sharedLapParticipants.filter((index) => index >= 0 && index < state.cars.length)
+    : [];
+  if (state.sharedLapParticipants.length === 0) {
+    state.sharedLapActive = false;
+    state.sharedLapProgress = 0;
+  }
+};
+
+const setSyncStatus = (message, isError = false) => {
+  syncStatusEl.textContent = message;
+  syncStatusEl.style.color = isError ? "#ff9d9d" : "";
+};
+
+const syncToSheet = async () => {
+  if (!googleSheetEndpoint) {
+    setSyncStatus(`Cloud sync not configured. Add an Apps Script endpoint for ${googleSheetUrl}.`);
+    return;
+  }
+  if (!account) {
+    setSyncStatus("Create an account before syncing.", true);
+    openAccountModal();
+    return;
+  }
+  setSyncStatus("Syncing...");
+  try {
+    const response = await fetch(googleSheetEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save",
+        account,
+        savedAt: new Date().toISOString(),
+        state,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Sync failed: ${response.status}`);
+    }
+    setSyncStatus("Sync complete.");
+  } catch (error) {
+    setSyncStatus("Sync failed. Check the Apps Script endpoint.", true);
+    console.error(error);
+  }
+};
+
+const loadFromSheet = async () => {
+  if (!googleSheetEndpoint || !account?.id) return;
+  try {
+    const response = await fetch(
+      `${googleSheetEndpoint}?action=load&id=${encodeURIComponent(account.id)}`
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data?.state) {
+      Object.assign(state, data.state);
+      normalizeState();
+      render();
+      save();
+      setSyncStatus("Loaded cloud save.");
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
 const applyOfflineProgress = () => {
   const now = Date.now();
   const diffMs = now - state.lastSaved;
@@ -246,6 +387,7 @@ const render = () => {
   totalLapsEl.textContent = formatNumber(state.totalLaps);
   currentTrackEl.textContent = tracks[state.currentTrackIndex].name;
   prestigeEl.textContent = state.prestige;
+  accountNameEl.textContent = account?.name || "Not signed in";
   const lapTime = getLapTimeDisplay();
   lapTimeEl.textContent = `${lapTime.toFixed(2)}s`;
 
@@ -469,6 +611,29 @@ carModal.addEventListener("click", (event) => {
   }
 });
 
+accountModal.addEventListener("click", (event) => {
+  if (event.target === accountModal) {
+    closeAccountModal();
+  }
+});
+
+saveAccountButton.addEventListener("click", () => {
+  const name = accountInput.value.trim();
+  if (!name) return;
+  const id = account?.id || (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}`);
+  saveAccount({ id, name, createdAt: account?.createdAt || new Date().toISOString() });
+  closeAccountModal();
+  loadFromSheet();
+});
+
+syncNowButton.addEventListener("click", () => {
+  syncToSheet();
+});
+
+switchAccountButton.addEventListener("click", () => {
+  openAccountModal();
+});
+
 carSpeedUpgradeButton.addEventListener("click", () => {
   const car = state.cars[selectedCarIndex];
   if (!car) return;
@@ -521,49 +686,23 @@ prestigeButton.addEventListener("click", () => {
 });
 
 load();
-state.money = Number(state.money) || 0;
-state.totalLaps = Number(state.totalLaps) || 0;
-state.currentTrackIndex = Number(state.currentTrackIndex) || 0;
-state.unlockedTracks = Number(state.unlockedTracks) || 1;
-state.prestige = Number(state.prestige) || 0;
-if (!Array.isArray(state.cars)) {
-  const count = Math.max(1, Number(state.cars) || 1);
-  state.cars = Array.from({ length: count }, () => ({
-    speedLevel: 0,
-    incomeLevel: 0,
-    gasLevel: 0,
-    lapsRemaining: 0,
-    lapProgress: 0,
-  }));
+normalizeState();
+account = loadAccount();
+if (!account) {
+  openAccountModal();
 } else {
-  state.cars = state.cars.map((car) => ({
-    speedLevel: car.speedLevel || 0,
-    incomeLevel: car.incomeLevel || 0,
-    gasLevel: car.gasLevel || 0,
-    lapsRemaining: car.lapsRemaining || 0,
-    lapProgress: car.lapProgress || 0,
-  }));
-}
-if (state.cars.length === 0) {
-  state.cars = [{ speedLevel: 0, incomeLevel: 0, gasLevel: 0, lapsRemaining: 0, lapProgress: 0 }];
-}
-const maxTrackIndex = tracks.length - 1;
-state.currentTrackIndex = Math.min(Math.max(state.currentTrackIndex, 0), maxTrackIndex);
-state.unlockedTracks = Math.min(Math.max(state.unlockedTracks, 1), tracks.length);
-state.sharedLapActive = Boolean(state.sharedLapActive);
-state.sharedLapProgress = Number(state.sharedLapProgress) || 0;
-state.sharedLapDuration = Number(state.sharedLapDuration) || 4;
-state.sharedLapParticipants = Array.isArray(state.sharedLapParticipants)
-  ? state.sharedLapParticipants.filter((index) => index >= 0 && index < state.cars.length)
-  : [];
-if (state.sharedLapParticipants.length === 0) {
-  state.sharedLapActive = false;
-  state.sharedLapProgress = 0;
+  accountNameEl.textContent = account.name;
 }
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 applyOfflineProgress();
 render();
+setSyncStatus(
+  googleSheetEndpoint
+    ? "Cloud sync ready. Use Sync Now to save."
+    : `Cloud sync not configured. Add an Apps Script endpoint for ${googleSheetUrl}.`
+);
+loadFromSheet();
 
 setInterval(save, 5000);
 requestAnimationFrame(drawTrack);
