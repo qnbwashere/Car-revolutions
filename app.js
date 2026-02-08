@@ -5,6 +5,8 @@ const baseCarCost = 50;
 const baseSpeedUpgradeCost = 75;
 const baseIncomeUpgradeCost = 90;
 const baseAutomationCost = 250;
+const baseCarSpeedUpgradeCost = 60;
+const baseCarIncomeUpgradeCost = 70;
 
 const tracks = [
   { id: "beginner", name: "Beginner Oval", multiplier: 1, unlockCost: 0 },
@@ -17,7 +19,7 @@ const tracks = [
 const state = {
   money: 200,
   totalLaps: 0,
-  cars: 1,
+  cars: [{ speedLevel: 0, incomeLevel: 0 }],
   speedLevel: 0,
   incomeLevel: 0,
   automationLevel: 0,
@@ -51,22 +53,28 @@ const formatNumber = (value) => {
   return value.toFixed(0);
 };
 
-const calculateLapTime = () => {
+const calculateLapTime = (car) => {
   const baseLap = 4;
-  const speedBonus = 1 + state.speedLevel * 0.12 + state.prestige * 0.05;
+  const carBonus = car.speedLevel * 0.12;
+  const speedBonus = 1 + state.speedLevel * 0.12 + carBonus + state.prestige * 0.05;
   return Math.max(0.6, baseLap / speedBonus);
 };
 
-const calculateLapIncome = () => {
+const calculateLapIncome = (car) => {
   const track = tracks[state.currentTrackIndex];
-  const incomeBonus = 1 + state.incomeLevel * 0.15 + state.prestige * 0.08;
+  const carBonus = car.incomeLevel * 0.15;
+  const incomeBonus = 1 + state.incomeLevel * 0.15 + carBonus + state.prestige * 0.08;
   return track.multiplier * incomeBonus * 8;
 };
 
-const getCarCost = () => baseCarCost * Math.pow(1.35, state.cars - 1);
+const getCarCost = () => baseCarCost * Math.pow(1.6, state.cars.length - 1);
 const getSpeedCost = () => baseSpeedUpgradeCost * Math.pow(1.6, state.speedLevel);
 const getIncomeCost = () => baseIncomeUpgradeCost * Math.pow(1.6, state.incomeLevel);
 const getAutomationCost = () => baseAutomationCost * Math.pow(2.1, state.automationLevel);
+const getCarSpeedCost = (car) =>
+  baseCarSpeedUpgradeCost * Math.pow(1.7, car.speedLevel);
+const getCarIncomeCost = (car) =>
+  baseCarIncomeUpgradeCost * Math.pow(1.7, car.incomeLevel);
 
 const save = () => {
   state.lastSaved = Date.now();
@@ -85,10 +93,16 @@ const applyOfflineProgress = () => {
   const diffMs = now - state.lastSaved;
   const maxMs = maxOfflineHours * 60 * 60 * 1000;
   const clampedMs = Math.min(diffMs, maxMs);
-  const lapTime = calculateLapTime();
-  const laps = Math.floor(clampedMs / 1000 / lapTime) * state.cars;
+  const laps = state.cars.reduce((sum, car) => {
+    const carLapTime = calculateLapTime(car);
+    return sum + Math.floor(clampedMs / 1000 / carLapTime);
+  }, 0);
   if (laps > 0) {
-    const earnings = laps * calculateLapIncome();
+    const earnings = state.cars.reduce((sum, car) => {
+      const carLapTime = calculateLapTime(car);
+      const carLaps = Math.floor(clampedMs / 1000 / carLapTime);
+      return sum + carLaps * calculateLapIncome(car);
+    }, 0);
     state.money += earnings;
     state.totalLaps += laps;
     offlineSummaryEl.textContent = `You were away for ${Math.floor(
@@ -101,22 +115,51 @@ const applyOfflineProgress = () => {
 
 const renderCars = () => {
   carListEl.innerHTML = "";
-  for (let i = 0; i < state.cars; i += 1) {
+  state.cars.forEach((car, index) => {
     const card = document.createElement("div");
     card.className = "card";
-    const lapTime = calculateLapTime();
-    const income = calculateLapIncome();
+    const lapTime = calculateLapTime(car);
+    const income = calculateLapIncome(car);
+    const speedCost = getCarSpeedCost(car);
+    const incomeCost = getCarIncomeCost(car);
+    const canUpgradeSpeed = state.money >= speedCost;
+    const canUpgradeIncome = state.money >= incomeCost;
     card.innerHTML = `
       <div>
-        <h3>Car ${i + 1}</h3>
+        <h3>Car ${index + 1}</h3>
         <p>Lap time: ${lapTime.toFixed(2)}s · Income: ${formatNumber(
           income
         )}/lap</p>
+        <p>Speed Lv. ${car.speedLevel} · Income Lv. ${car.incomeLevel}</p>
       </div>
-      <span class="pill">Active</span>
+      <div class="card-actions">
+        <button class="small" ${canUpgradeSpeed ? "" : "disabled"}>
+          Speed + (${formatNumber(speedCost)})
+        </button>
+        <button class="small" ${canUpgradeIncome ? "" : "disabled"}>
+          Income + (${formatNumber(incomeCost)})
+        </button>
+      </div>
     `;
+    const [speedButton, incomeButton] = card.querySelectorAll("button");
+    speedButton.addEventListener("click", () => {
+      if (state.money >= speedCost) {
+        state.money -= speedCost;
+        car.speedLevel += 1;
+        render();
+        save();
+      }
+    });
+    incomeButton.addEventListener("click", () => {
+      if (state.money >= incomeCost) {
+        state.money -= incomeCost;
+        car.incomeLevel += 1;
+        render();
+        save();
+      }
+    });
     carListEl.appendChild(card);
-  }
+  });
 };
 
 const renderTracks = () => {
@@ -170,12 +213,16 @@ const renderButtons = () => {
   automationButton.disabled = state.money < getAutomationCost();
 };
 
+const getFastestLapTime = () =>
+  Math.min(...state.cars.map((car) => calculateLapTime(car)));
+
 const render = () => {
   moneyEl.textContent = formatNumber(state.money);
   totalLapsEl.textContent = formatNumber(state.totalLaps);
   currentTrackEl.textContent = tracks[state.currentTrackIndex].name;
   prestigeEl.textContent = state.prestige;
-  lapTimeEl.textContent = `${calculateLapTime().toFixed(2)}s`;
+  const fastestLap = getFastestLapTime();
+  lapTimeEl.textContent = `${fastestLap.toFixed(2)}s`;
 
   renderCars();
   renderTracks();
@@ -205,18 +252,18 @@ const drawTrack = (timestamp) => {
   trackContext.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
   trackContext.stroke();
 
-  const lapTime = calculateLapTime();
+  const lapTime = getFastestLapTime();
   const baseAngle = (timestamp / 1000 / lapTime) * Math.PI * 2;
 
-  for (let i = 0; i < state.cars; i += 1) {
-    const angle = baseAngle + (i * Math.PI * 2) / state.cars;
+  state.cars.forEach((car, index) => {
+    const angle = baseAngle + (index * Math.PI * 2) / state.cars.length;
     const carX = centerX + Math.cos(angle) * radiusX;
     const carY = centerY + Math.sin(angle) * radiusY;
-    trackContext.fillStyle = `hsl(${(i * 60) % 360}, 80%, 60%)`;
+    trackContext.fillStyle = `hsl(${(index * 60) % 360}, 80%, 60%)`;
     trackContext.beginPath();
     trackContext.arc(carX, carY, 6, 0, Math.PI * 2);
     trackContext.fill();
-  }
+  });
 
   requestAnimationFrame(drawTrack);
 };
@@ -233,14 +280,36 @@ const autoBuy = () => {
       target.action();
     }
   });
+
+  state.cars.forEach((car) => {
+    const speedCost = getCarSpeedCost(car);
+    if (state.money >= speedCost) {
+      state.money -= speedCost;
+      car.speedLevel += 1;
+    }
+    const incomeCost = getCarIncomeCost(car);
+    if (state.money >= incomeCost) {
+      state.money -= incomeCost;
+      car.incomeLevel += 1;
+    }
+  });
 };
 
 const tick = () => {
-  const lapIncome = calculateLapIncome();
-  const lapTime = calculateLapTime();
-  const lapsThisTick = (1 / lapTime) * state.cars;
-  state.money += lapsThisTick * lapIncome;
-  state.totalLaps += lapsThisTick;
+  const totals = state.cars.reduce(
+    (sum, car) => {
+      const lapTime = calculateLapTime(car);
+      const lapIncome = calculateLapIncome(car);
+      const lapsThisTick = 1 / lapTime;
+      return {
+        laps: sum.laps + lapsThisTick,
+        income: sum.income + lapsThisTick * lapIncome,
+      };
+    },
+    { laps: 0, income: 0 }
+  );
+  state.money += totals.income;
+  state.totalLaps += totals.laps;
   autoBuy();
   render();
 };
@@ -249,7 +318,7 @@ buyCarButton.addEventListener("click", () => {
   const cost = getCarCost();
   if (state.money >= cost) {
     state.money -= cost;
-    state.cars += 1;
+    state.cars.push({ speedLevel: 0, incomeLevel: 0 });
     render();
     save();
   }
@@ -290,7 +359,7 @@ prestigeButton.addEventListener("click", () => {
   state.prestige += bonus;
   state.money = 0;
   state.totalLaps = 0;
-  state.cars = 1;
+  state.cars = [{ speedLevel: 0, incomeLevel: 0 }];
   state.speedLevel = 0;
   state.incomeLevel = 0;
   state.automationLevel = 0;
@@ -301,6 +370,13 @@ prestigeButton.addEventListener("click", () => {
 });
 
 load();
+if (!Array.isArray(state.cars)) {
+  const count = Math.max(1, Number(state.cars) || 1);
+  state.cars = Array.from({ length: count }, () => ({
+    speedLevel: 0,
+    incomeLevel: 0,
+  }));
+}
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 applyOfflineProgress();

@@ -114,6 +114,12 @@ main {
   gap: 12px;
 }
 
+.card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .card h3 {
   margin: 0;
   font-size: 1rem;
@@ -143,6 +149,11 @@ button {
   cursor: pointer;
   font-weight: 600;
   transition: transform 0.15s ease, background 0.15s ease;
+}
+
+button.small {
+  padding: 6px 12px;
+  font-size: 0.75rem;
 }
 
 button:hover {
