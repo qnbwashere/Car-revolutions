@@ -15,7 +15,7 @@ const tracks = [
 ];
 
 const state = {
-  money: 0,
+  money: 200,
   totalLaps: 0,
   cars: 1,
   speedLevel: 0,
@@ -31,9 +31,12 @@ const moneyEl = document.getElementById("money");
 const totalLapsEl = document.getElementById("total-laps");
 const currentTrackEl = document.getElementById("current-track");
 const prestigeEl = document.getElementById("prestige-level");
+const lapTimeEl = document.getElementById("lap-time");
 const carListEl = document.getElementById("car-list");
 const trackListEl = document.getElementById("track-list");
 const offlineSummaryEl = document.getElementById("offline-summary");
+const trackCanvas = document.getElementById("track-canvas");
+const trackContext = trackCanvas.getContext("2d");
 
 const buyCarButton = document.getElementById("buy-car");
 const speedButton = document.getElementById("upgrade-speed");
@@ -172,10 +175,50 @@ const render = () => {
   totalLapsEl.textContent = formatNumber(state.totalLaps);
   currentTrackEl.textContent = tracks[state.currentTrackIndex].name;
   prestigeEl.textContent = state.prestige;
+  lapTimeEl.textContent = `${calculateLapTime().toFixed(2)}s`;
 
   renderCars();
   renderTracks();
   renderButtons();
+};
+
+const resizeCanvas = () => {
+  const { width, height } = trackCanvas.getBoundingClientRect();
+  const scale = window.devicePixelRatio || 1;
+  trackCanvas.width = Math.floor(width * scale);
+  trackCanvas.height = Math.floor(height * scale);
+  trackContext.setTransform(scale, 0, 0, scale, 0, 0);
+};
+
+const drawTrack = (timestamp) => {
+  const { width, height } = trackCanvas.getBoundingClientRect();
+  trackContext.clearRect(0, 0, width, height);
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radiusX = width * 0.35;
+  const radiusY = height * 0.28;
+
+  trackContext.strokeStyle = "rgba(90, 140, 255, 0.35)";
+  trackContext.lineWidth = 6;
+  trackContext.beginPath();
+  trackContext.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+  trackContext.stroke();
+
+  const lapTime = calculateLapTime();
+  const baseAngle = (timestamp / 1000 / lapTime) * Math.PI * 2;
+
+  for (let i = 0; i < state.cars; i += 1) {
+    const angle = baseAngle + (i * Math.PI * 2) / state.cars;
+    const carX = centerX + Math.cos(angle) * radiusX;
+    const carY = centerY + Math.sin(angle) * radiusY;
+    trackContext.fillStyle = `hsl(${(i * 60) % 360}, 80%, 60%)`;
+    trackContext.beginPath();
+    trackContext.arc(carX, carY, 6, 0, Math.PI * 2);
+    trackContext.fill();
+  }
+
+  requestAnimationFrame(drawTrack);
 };
 
 const autoBuy = () => {
@@ -258,8 +301,11 @@ prestigeButton.addEventListener("click", () => {
 });
 
 load();
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 applyOfflineProgress();
 render();
 
 setInterval(tick, 1000);
 setInterval(save, 5000);
+requestAnimationFrame(drawTrack);

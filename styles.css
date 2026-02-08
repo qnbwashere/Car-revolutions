@@ -72,6 +72,31 @@ main {
   gap: 12px;
 }
 
+.track-panel {
+  grid-column: 1 / -1;
+}
+
+.track-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.track-meta {
+  text-align: right;
+  color: #9aa3b3;
+}
+
+#track-canvas {
+  width: 100%;
+  height: 260px;
+  border-radius: 16px;
+  background: radial-gradient(circle at center, rgba(75, 120, 255, 0.12), rgba(12, 15, 22, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .card-list {
   display: flex;
   flex-direction: column;
