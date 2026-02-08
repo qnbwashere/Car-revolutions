@@ -97,8 +97,12 @@ const save = () => {
 const load = () => {
   const stored = localStorage.getItem(storageKey);
   if (!stored) return;
-  const parsed = JSON.parse(stored);
-  Object.assign(state, parsed);
+  try {
+    const parsed = JSON.parse(stored);
+    Object.assign(state, parsed);
+  } catch (error) {
+    console.warn("Failed to parse save data, starting fresh.", error);
+  }
 };
 
 const applyOfflineProgress = () => {
@@ -504,6 +508,11 @@ prestigeButton.addEventListener("click", () => {
 });
 
 load();
+state.money = Number(state.money) || 0;
+state.totalLaps = Number(state.totalLaps) || 0;
+state.currentTrackIndex = Number(state.currentTrackIndex) || 0;
+state.unlockedTracks = Number(state.unlockedTracks) || 1;
+state.prestige = Number(state.prestige) || 0;
 if (!Array.isArray(state.cars)) {
   const count = Math.max(1, Number(state.cars) || 1);
   state.cars = Array.from({ length: count }, () => ({
@@ -522,12 +531,22 @@ if (!Array.isArray(state.cars)) {
     lapProgress: car.lapProgress || 0,
   }));
 }
+if (state.cars.length === 0) {
+  state.cars = [{ speedLevel: 0, incomeLevel: 0, gasLevel: 0, lapsRemaining: 0, lapProgress: 0 }];
+}
+const maxTrackIndex = tracks.length - 1;
+state.currentTrackIndex = Math.min(Math.max(state.currentTrackIndex, 0), maxTrackIndex);
+state.unlockedTracks = Math.min(Math.max(state.unlockedTracks, 1), tracks.length);
 state.sharedLapActive = Boolean(state.sharedLapActive);
 state.sharedLapProgress = Number(state.sharedLapProgress) || 0;
 state.sharedLapDuration = Number(state.sharedLapDuration) || 4;
 state.sharedLapParticipants = Array.isArray(state.sharedLapParticipants)
-  ? state.sharedLapParticipants
+  ? state.sharedLapParticipants.filter((index) => index >= 0 && index < state.cars.length)
   : [];
+if (state.sharedLapParticipants.length === 0) {
+  state.sharedLapActive = false;
+  state.sharedLapProgress = 0;
+}
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 applyOfflineProgress();
