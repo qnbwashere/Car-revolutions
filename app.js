@@ -50,6 +50,7 @@ const carIncomeUpgradeButton = document.getElementById("car-income-upgrade");
 const carGasUpgradeButton = document.getElementById("car-gas-upgrade");
 
 let selectedCarIndex = null;
+let lastFrameTime = null;
 
 const formatNumber = (value) => {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
@@ -292,6 +293,7 @@ const resizeCanvas = () => {
 
 const drawTrack = (timestamp) => {
   if (!trackContext) return;
+  advanceSharedLap(timestamp);
   const { width, height } = trackCanvas.getBoundingClientRect();
   trackContext.clearRect(0, 0, width, height);
 
@@ -406,7 +408,15 @@ const startSharedLap = () => {
   state.sharedLapActive = true;
 };
 
-const tick = () => {
+const advanceSharedLap = (timestamp) => {
+  if (lastFrameTime === null) {
+    lastFrameTime = timestamp;
+    return;
+  }
+
+  const deltaSeconds = Math.min((timestamp - lastFrameTime) / 1000, 0.2);
+  lastFrameTime = timestamp;
+
   let earnedIncome = 0;
   let earnedLaps = 0;
 
@@ -415,8 +425,9 @@ const tick = () => {
   }
 
   if (state.sharedLapActive) {
-    state.sharedLapProgress += 1 / state.sharedLapDuration;
-    if (state.sharedLapProgress >= 1) {
+    state.sharedLapProgress += deltaSeconds / state.sharedLapDuration;
+    while (state.sharedLapProgress >= 1 && state.sharedLapActive) {
+      state.sharedLapProgress -= 1;
       state.sharedLapParticipants.forEach((index) => {
         const car = state.cars[index];
         if (!car || car.lapsRemaining <= 0) return;
@@ -428,9 +439,11 @@ const tick = () => {
     }
   }
 
-  state.money += earnedIncome;
-  state.totalLaps += earnedLaps;
-  render();
+  if (earnedLaps > 0) {
+    state.money += earnedIncome;
+    state.totalLaps += earnedLaps;
+    render();
+  }
 };
 
 buyCarButton.addEventListener("click", () => {
@@ -552,6 +565,5 @@ window.addEventListener("resize", resizeCanvas);
 applyOfflineProgress();
 render();
 
-setInterval(tick, 1000);
 setInterval(save, 5000);
 requestAnimationFrame(drawTrack);
