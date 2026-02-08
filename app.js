@@ -308,7 +308,7 @@ const renderCars = () => {
     const settingsButton = card.querySelector(".settings");
     card.addEventListener("click", () => {
       car.lapsRemaining += 1 + car.gasLevel;
-      if (!state.sharedLapActive) {
+      if (!state.sharedLapActive || state.sharedLapParticipants.length === 0) {
         startSharedLap();
       }
       render();
@@ -556,6 +556,10 @@ const advanceSharedLap = (timestamp) => {
   }
 
   if (state.sharedLapActive) {
+    if (state.sharedLapParticipants.length === 0) {
+      state.sharedLapActive = false;
+      state.sharedLapProgress = 0;
+    }
     state.sharedLapProgress += deltaSeconds / Math.max(state.sharedLapDuration, 0.6);
     while (state.sharedLapProgress >= 1 && state.sharedLapActive) {
       state.sharedLapProgress -= 1;
