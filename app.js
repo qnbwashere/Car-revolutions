@@ -63,6 +63,7 @@ const saveAccountButton = document.getElementById("save-account");
 let selectedCarIndex = null;
 let lastFrameTime = null;
 let account = null;
+let visualLapProgress = 0;
 
 const formatNumber = (value) => {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
@@ -511,9 +512,7 @@ const drawTrack = (timestamp) => {
   trackContext.lineTo(centerX + radiusX * 0.88, centerY);
   trackContext.stroke();
 
-  const baseAngle = state.sharedLapActive
-    ? state.sharedLapProgress * Math.PI * 2
-    : (timestamp / 1000 / getFastestLapTime()) * Math.PI * 2;
+  const baseAngle = visualLapProgress * Math.PI * 2;
 
   state.cars.forEach((car, index) => {
     const isActive = state.sharedLapParticipants.includes(index);
@@ -559,6 +558,12 @@ const advanceSharedLap = (timestamp) => {
   const deltaSeconds = Math.min((timestamp - lastFrameTime) / 1000, 0.2);
   lastFrameTime = timestamp;
 
+  const animationLapTime = state.sharedLapActive
+    ? state.sharedLapDuration
+    : getFastestLapTime();
+  visualLapProgress =
+    (visualLapProgress + deltaSeconds / Math.max(animationLapTime, 0.6)) % 1;
+
   let earnedIncome = 0;
   let earnedLaps = 0;
 
@@ -567,7 +572,7 @@ const advanceSharedLap = (timestamp) => {
   }
 
   if (state.sharedLapActive) {
-    state.sharedLapProgress += deltaSeconds / state.sharedLapDuration;
+    state.sharedLapProgress += deltaSeconds / Math.max(state.sharedLapDuration, 0.6);
     while (state.sharedLapProgress >= 1 && state.sharedLapActive) {
       state.sharedLapProgress -= 1;
       state.sharedLapParticipants.forEach((index) => {
