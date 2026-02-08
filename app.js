@@ -21,6 +21,10 @@ const state = {
   currentTrackIndex: 0,
   unlockedTracks: 1,
   prestige: 0,
+  sharedLapActive: false,
+  sharedLapProgress: 0,
+  sharedLapDuration: 4,
+  sharedLapParticipants: [],
   lastSaved: Date.now(),
 };
 
@@ -58,6 +62,16 @@ const calculateLapTime = (car) => {
   const baseLap = 4;
   const carBonus = car.speedLevel * 0.12;
   const speedBonus = 1 + carBonus + state.prestige * 0.05;
+  return Math.max(0.6, baseLap / speedBonus);
+};
+
+const calculateSharedLapTime = (participants) => {
+  if (participants.length === 0) return 4;
+  const baseLap = 4;
+  const avgSpeed =
+    participants.reduce((sum, index) => sum + state.cars[index].speedLevel, 0) /
+    participants.length;
+  const speedBonus = 1 + avgSpeed * 0.12 + state.prestige * 0.05;
   return Math.max(0.6, baseLap / speedBonus);
 };
 
@@ -148,6 +162,9 @@ const renderCars = () => {
     const settingsButton = card.querySelector(".settings");
     card.addEventListener("click", () => {
       car.lapsRemaining += 1 + car.gasLevel;
+      if (!state.sharedLapActive) {
+        startSharedLap();
+      }
       render();
       save();
     });
@@ -206,13 +223,26 @@ const renderButtons = () => {
 const getFastestLapTime = () =>
   Math.min(...state.cars.map((car) => calculateLapTime(car)));
 
+const getLapTimeDisplay = () => {
+  if (state.sharedLapActive) {
+    return state.sharedLapDuration;
+  }
+  const queued = state.cars
+    .map((car, index) => (car.lapsRemaining > 0 ? index : null))
+    .filter((value) => value !== null);
+  if (queued.length > 0) {
+    return calculateSharedLapTime(queued);
+  }
+  return getFastestLapTime();
+};
+
 const render = () => {
   moneyEl.textContent = formatNumber(state.money);
   totalLapsEl.textContent = formatNumber(state.totalLaps);
   currentTrackEl.textContent = tracks[state.currentTrackIndex].name;
   prestigeEl.textContent = state.prestige;
-  const fastestLap = getFastestLapTime();
-  lapTimeEl.textContent = `${fastestLap.toFixed(2)}s`;
+  const lapTime = getLapTimeDisplay();
+  lapTimeEl.textContent = `${lapTime.toFixed(2)}s`;
 
   renderCars();
   renderTracks();
@@ -261,22 +291,84 @@ const drawTrack = (timestamp) => {
   const { width, height } = trackCanvas.getBoundingClientRect();
   trackContext.clearRect(0, 0, width, height);
 
+  const trackStyleMap = {
+    beginner: {
+      outer: "rgba(90, 140, 255, 0.4)",
+      inner: "rgba(120, 180, 255, 0.25)",
+      glow: "rgba(70, 120, 240, 0.15)",
+      lane: "rgba(140, 190, 255, 0.5)",
+    },
+    city: {
+      outer: "rgba(180, 90, 255, 0.45)",
+      inner: "rgba(210, 140, 255, 0.25)",
+      glow: "rgba(160, 80, 230, 0.18)",
+      lane: "rgba(240, 180, 255, 0.55)",
+    },
+    desert: {
+      outer: "rgba(255, 160, 90, 0.5)",
+      inner: "rgba(255, 190, 120, 0.25)",
+      glow: "rgba(220, 120, 60, 0.18)",
+      lane: "rgba(255, 210, 160, 0.55)",
+    },
+    pro: {
+      outer: "rgba(90, 220, 140, 0.45)",
+      inner: "rgba(120, 250, 180, 0.25)",
+      glow: "rgba(60, 190, 120, 0.18)",
+      lane: "rgba(180, 255, 220, 0.55)",
+    },
+    future: {
+      outer: "rgba(90, 240, 255, 0.5)",
+      inner: "rgba(140, 255, 255, 0.25)",
+      glow: "rgba(60, 210, 230, 0.2)",
+      lane: "rgba(200, 255, 255, 0.6)",
+    },
+  };
+
+  const trackStyle = trackStyleMap[tracks[state.currentTrackIndex].id];
+
   const centerX = width / 2;
   const centerY = height / 2;
   const radiusX = width * 0.35;
   const radiusY = height * 0.28;
 
-  trackContext.strokeStyle = "rgba(90, 140, 255, 0.35)";
+  const glowGradient = trackContext.createRadialGradient(
+    centerX,
+    centerY,
+    10,
+    centerX,
+    centerY,
+    radiusX * 1.2
+  );
+  glowGradient.addColorStop(0, trackStyle.glow);
+  glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+  trackContext.fillStyle = glowGradient;
+  trackContext.fillRect(0, 0, width, height);
+
+  trackContext.strokeStyle = trackStyle.outer;
   trackContext.lineWidth = 6;
   trackContext.beginPath();
   trackContext.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
   trackContext.stroke();
 
-  const lapTime = getFastestLapTime();
-  const baseAngle = (timestamp / 1000 / lapTime) * Math.PI * 2;
+  trackContext.strokeStyle = trackStyle.inner;
+  trackContext.lineWidth = 2;
+  trackContext.beginPath();
+  trackContext.ellipse(centerX, centerY, radiusX * 0.78, radiusY * 0.78, 0, 0, Math.PI * 2);
+  trackContext.stroke();
+
+  trackContext.strokeStyle = trackStyle.lane;
+  trackContext.lineWidth = 3;
+  trackContext.beginPath();
+  trackContext.moveTo(centerX + radiusX, centerY);
+  trackContext.lineTo(centerX + radiusX * 0.88, centerY);
+  trackContext.stroke();
+
+  const baseAngle = state.sharedLapActive
+    ? state.sharedLapProgress * Math.PI * 2
+    : (timestamp / 1000 / getFastestLapTime()) * Math.PI * 2;
 
   state.cars.forEach((car, index) => {
-    const isActive = car.lapsRemaining > 0;
+    const isActive = state.sharedLapParticipants.includes(index);
     const angleOffset = (index * Math.PI * 2) / state.cars.length;
     const angle = isActive ? baseAngle + angleOffset : angleOffset;
     const carX = centerX + Math.cos(angle) * radiusX;
@@ -292,22 +384,46 @@ const drawTrack = (timestamp) => {
   requestAnimationFrame(drawTrack);
 };
 
+const startSharedLap = () => {
+  const participants = state.cars
+    .map((car, index) => (car.lapsRemaining > 0 ? index : null))
+    .filter((value) => value !== null);
+
+  if (participants.length === 0) {
+    state.sharedLapActive = false;
+    state.sharedLapParticipants = [];
+    state.sharedLapProgress = 0;
+    return;
+  }
+
+  state.sharedLapParticipants = participants;
+  state.sharedLapDuration = calculateSharedLapTime(participants);
+  state.sharedLapProgress = 0;
+  state.sharedLapActive = true;
+};
+
 const tick = () => {
   let earnedIncome = 0;
   let earnedLaps = 0;
-  state.cars.forEach((car) => {
-    if (car.lapsRemaining <= 0) return;
-    const lapTime = calculateLapTime(car);
-    car.lapProgress += 1 / lapTime;
-    if (car.lapProgress >= 1) {
-      const completedLaps = Math.floor(car.lapProgress);
-      const usableLaps = Math.min(completedLaps, car.lapsRemaining);
-      car.lapsRemaining -= usableLaps;
-      car.lapProgress -= completedLaps;
-      earnedLaps += usableLaps;
-      earnedIncome += usableLaps * calculateLapIncome(car);
+
+  if (!state.sharedLapActive) {
+    startSharedLap();
+  }
+
+  if (state.sharedLapActive) {
+    state.sharedLapProgress += 1 / state.sharedLapDuration;
+    if (state.sharedLapProgress >= 1) {
+      state.sharedLapParticipants.forEach((index) => {
+        const car = state.cars[index];
+        if (!car || car.lapsRemaining <= 0) return;
+        car.lapsRemaining -= 1;
+        earnedLaps += 1;
+        earnedIncome += calculateLapIncome(car);
+      });
+      startSharedLap();
     }
-  });
+  }
+
   state.money += earnedIncome;
   state.totalLaps += earnedLaps;
   render();
@@ -406,6 +522,12 @@ if (!Array.isArray(state.cars)) {
     lapProgress: car.lapProgress || 0,
   }));
 }
+state.sharedLapActive = Boolean(state.sharedLapActive);
+state.sharedLapProgress = Number(state.sharedLapProgress) || 0;
+state.sharedLapDuration = Number(state.sharedLapDuration) || 4;
+state.sharedLapParticipants = Array.isArray(state.sharedLapParticipants)
+  ? state.sharedLapParticipants
+  : [];
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 applyOfflineProgress();
