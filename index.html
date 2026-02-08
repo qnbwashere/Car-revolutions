@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Car Revolutions Idle</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>Car Revolutions Idle</h1>
+        <p class="subtitle">Idle racing manager for mobile + web. Earn laps, upgrade cars, unlock tracks.</p>
+      </header>
+
+      <section class="stats">
+        <div>
+          <span class="label">Money</span>
+          <span id="money">0</span>
+        </div>
+        <div>
+          <span class="label">Total Laps</span>
+          <span id="total-laps">0</span>
+        </div>
+        <div>
+          <span class="label">Current Track</span>
+          <span id="current-track">Beginner Oval</span>
+        </div>
+        <div>
+          <span class="label">Prestige</span>
+          <span id="prestige-level">0</span>
+        </div>
+      </section>
+
+      <main>
+        <section class="panel">
+          <h2>Cars</h2>
+          <div id="car-list" class="card-list"></div>
+          <button id="buy-car" class="primary">Buy New Car</button>
+        </section>
+
+        <section class="panel">
+          <h2>Upgrades</h2>
+          <div class="upgrade">
+            <div>
+              <h3>Speed Upgrade</h3>
+              <p>Increase lap speed for all cars.</p>
+            </div>
+            <button id="upgrade-speed">Upgrade</button>
+          </div>
+          <div class="upgrade">
+            <div>
+              <h3>Income Upgrade</h3>
+              <p>Increase earnings per lap.</p>
+            </div>
+            <button id="upgrade-income">Upgrade</button>
+          </div>
+          <div class="upgrade">
+            <div>
+              <h3>Automation Upgrade</h3>
+              <p>Unlock auto-buy for car upgrades.</p>
+            </div>
+            <button id="upgrade-automation">Upgrade</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Tracks</h2>
+          <div id="track-list" class="card-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Season Reset</h2>
+          <p>Reset cars, tracks, and money for a permanent bonus.</p>
+          <button id="prestige-reset" class="danger">Reset Season</button>
+        </section>
+
+        <section class="panel">
+          <h2>Offline Progress</h2>
+          <p id="offline-summary">Loading offline progress...</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
