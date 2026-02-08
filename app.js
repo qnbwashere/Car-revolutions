@@ -17,7 +17,7 @@ const tracks = [
 ];
 
 const state = {
-  money: 200,
+  money: 0,
   totalLaps: 0,
   cars: [{ speedLevel: 0, incomeLevel: 0, gasLevel: 0, lapsRemaining: 0, lapProgress: 0 }],
   speedLevel: 0,
@@ -40,10 +40,18 @@ const trackCanvas = document.getElementById("track-canvas");
 const trackContext = trackCanvas.getContext("2d");
 
 const buyCarButton = document.getElementById("buy-car");
-const startLapsButton = document.getElementById("start-laps");
 const speedButton = document.getElementById("upgrade-speed");
 const incomeButton = document.getElementById("upgrade-income");
 const prestigeButton = document.getElementById("prestige-reset");
+const carModal = document.getElementById("car-modal");
+const carModalTitle = document.getElementById("car-modal-title");
+const carModalStats = document.getElementById("car-modal-stats");
+const closeModalButton = document.getElementById("close-modal");
+const carSpeedUpgradeButton = document.getElementById("car-speed-upgrade");
+const carIncomeUpgradeButton = document.getElementById("car-income-upgrade");
+const carGasUpgradeButton = document.getElementById("car-gas-upgrade");
+
+let selectedCarIndex = null;
 
 const formatNumber = (value) => {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
@@ -132,12 +140,6 @@ const renderCars = () => {
     card.className = "card";
     const lapTime = calculateLapTime(car);
     const income = calculateLapIncome(car);
-    const speedCost = getCarSpeedCost(car);
-    const incomeCost = getCarIncomeCost(car);
-    const gasCost = getCarGasCost(car);
-    const canUpgradeSpeed = state.money >= speedCost;
-    const canUpgradeIncome = state.money >= incomeCost;
-    const canUpgradeGas = state.money >= gasCost;
     card.innerHTML = `
       <div>
         <h3>Car ${index + 1}</h3>
@@ -148,41 +150,19 @@ const renderCars = () => {
         <p>Queued laps: ${car.lapsRemaining}</p>
       </div>
       <div class="card-actions">
-        <button class="small" ${canUpgradeSpeed ? "" : "disabled"}>
-          Speed + (${formatNumber(speedCost)})
-        </button>
-        <button class="small" ${canUpgradeIncome ? "" : "disabled"}>
-          Income + (${formatNumber(incomeCost)})
-        </button>
-        <button class="small" ${canUpgradeGas ? "" : "disabled"}>
-          Gas + (${formatNumber(gasCost)})
-        </button>
+        <button class="small start-lap">Start Lap</button>
+        <button class="small settings">Settings</button>
       </div>
     `;
-    const [speedButton, incomeButton, gasButton] = card.querySelectorAll("button");
-    speedButton.addEventListener("click", () => {
-      if (state.money >= speedCost) {
-        state.money -= speedCost;
-        car.speedLevel += 1;
-        render();
-        save();
-      }
+    const startLapButton = card.querySelector(".start-lap");
+    const settingsButton = card.querySelector(".settings");
+    startLapButton.addEventListener("click", () => {
+      car.lapsRemaining += 1 + car.gasLevel;
+      render();
+      save();
     });
-    incomeButton.addEventListener("click", () => {
-      if (state.money >= incomeCost) {
-        state.money -= incomeCost;
-        car.incomeLevel += 1;
-        render();
-        save();
-      }
-    });
-    gasButton.addEventListener("click", () => {
-      if (state.money >= gasCost) {
-        state.money -= gasCost;
-        car.gasLevel += 1;
-        render();
-        save();
-      }
+    settingsButton.addEventListener("click", () => {
+      openCarModal(index);
     });
     carListEl.appendChild(card);
   });
@@ -249,6 +229,35 @@ const render = () => {
   renderCars();
   renderTracks();
   renderButtons();
+};
+
+const openCarModal = (index) => {
+  selectedCarIndex = index;
+  const car = state.cars[index];
+  if (!car) return;
+  carModalTitle.textContent = `Car ${index + 1} Settings`;
+  carModalStats.textContent = `Speed Lv. ${car.speedLevel} · Income Lv. ${car.incomeLevel} · Gas Lv. ${car.gasLevel}`;
+
+  const speedCost = getCarSpeedCost(car);
+  const incomeCost = getCarIncomeCost(car);
+  const gasCost = getCarGasCost(car);
+
+  carSpeedUpgradeButton.textContent = `Upgrade (${formatNumber(speedCost)})`;
+  carIncomeUpgradeButton.textContent = `Upgrade (${formatNumber(incomeCost)})`;
+  carGasUpgradeButton.textContent = `Upgrade (${formatNumber(gasCost)})`;
+
+  carSpeedUpgradeButton.disabled = state.money < speedCost;
+  carIncomeUpgradeButton.disabled = state.money < incomeCost;
+  carGasUpgradeButton.disabled = state.money < gasCost;
+
+  carModal.classList.remove("hidden");
+  carModal.setAttribute("aria-hidden", "false");
+};
+
+const closeCarModal = () => {
+  selectedCarIndex = null;
+  carModal.classList.add("hidden");
+  carModal.setAttribute("aria-hidden", "true");
 };
 
 const resizeCanvas = () => {
@@ -351,13 +360,50 @@ incomeButton.addEventListener("click", () => {
   }
 });
 
-startLapsButton.addEventListener("click", () => {
-  state.cars.forEach((car) => {
-    car.lapsRemaining = 1 + car.gasLevel;
-    car.lapProgress = 0;
-  });
-  render();
-  save();
+closeModalButton.addEventListener("click", closeCarModal);
+carModal.addEventListener("click", (event) => {
+  if (event.target === carModal) {
+    closeCarModal();
+  }
+});
+
+carSpeedUpgradeButton.addEventListener("click", () => {
+  const car = state.cars[selectedCarIndex];
+  if (!car) return;
+  const cost = getCarSpeedCost(car);
+  if (state.money >= cost) {
+    state.money -= cost;
+    car.speedLevel += 1;
+    openCarModal(selectedCarIndex);
+    render();
+    save();
+  }
+});
+
+carIncomeUpgradeButton.addEventListener("click", () => {
+  const car = state.cars[selectedCarIndex];
+  if (!car) return;
+  const cost = getCarIncomeCost(car);
+  if (state.money >= cost) {
+    state.money -= cost;
+    car.incomeLevel += 1;
+    openCarModal(selectedCarIndex);
+    render();
+    save();
+  }
+});
+
+carGasUpgradeButton.addEventListener("click", () => {
+  const car = state.cars[selectedCarIndex];
+  if (!car) return;
+  const cost = getCarGasCost(car);
+  if (state.money >= cost) {
+    state.money -= cost;
+    car.gasLevel += 1;
+    openCarModal(selectedCarIndex);
+    render();
+    save();
+  }
 });
 
 prestigeButton.addEventListener("click", () => {

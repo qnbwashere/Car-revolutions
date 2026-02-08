@@ -118,6 +118,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  align-items: flex-end;
 }
 
 .card h3 {
@@ -154,6 +155,55 @@ button {
 button.small {
   padding: 6px 12px;
   font-size: 0.75rem;
+}
+
+.icon-button {
+  background: transparent;
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 12, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  width: min(500px, 100%);
+  background: #121722;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 40px rgba(3, 6, 12, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 button:hover {

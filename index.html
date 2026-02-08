@@ -50,7 +50,6 @@
           <h2>Cars</h2>
           <div id="car-list" class="card-list"></div>
           <button id="buy-car" class="primary">Buy New Car</button>
-          <button id="start-laps">Start Laps</button>
         </section>
 
         <section class="panel">
@@ -87,6 +86,39 @@
           <p id="offline-summary">Loading offline progress...</p>
         </section>
       </main>
+    </div>
+
+    <div id="car-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="car-modal-title">Car Settings</h3>
+          <button id="close-modal" class="icon-button" aria-label="Close car settings">✕</button>
+        </div>
+        <div class="modal-body">
+          <p id="car-modal-stats"></p>
+          <div class="upgrade">
+            <div>
+              <h4>Speed Upgrade</h4>
+              <p>Increase this car's lap speed.</p>
+            </div>
+            <button id="car-speed-upgrade">Upgrade</button>
+          </div>
+          <div class="upgrade">
+            <div>
+              <h4>Income Upgrade</h4>
+              <p>Increase this car's lap earnings.</p>
+            </div>
+            <button id="car-income-upgrade">Upgrade</button>
+          </div>
+          <div class="upgrade">
+            <div>
+              <h4>Gas Mileage</h4>
+              <p>Increase how many laps this car can queue per click.</p>
+            </div>
+            <button id="car-gas-upgrade">Upgrade</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="app.js"></script>
