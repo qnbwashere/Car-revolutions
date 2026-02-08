@@ -62,7 +62,6 @@ const saveAccountButton = document.getElementById("save-account");
 let selectedCarIndex = null;
 let lastFrameTime = null;
 let account = null;
-let visualLapProgress = 0;
 
 const formatNumber = (value) => {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
@@ -308,9 +307,6 @@ const renderCars = () => {
     const settingsButton = card.querySelector(".settings");
     card.addEventListener("click", () => {
       car.lapsRemaining += 1 + car.gasLevel;
-      if (!state.sharedLapActive || state.sharedLapParticipants.length === 0) {
-        startSharedLap();
-      }
       render();
       save();
     });
@@ -496,16 +492,14 @@ const drawTrack = (timestamp) => {
   trackContext.lineTo(centerX + radiusX * 0.88, centerY);
   trackContext.stroke();
 
-  const baseAngle = visualLapProgress * Math.PI * 2;
-
   state.cars.forEach((car, index) => {
-    const isActive = state.sharedLapParticipants.includes(index);
     const delayFraction = (index / Math.max(state.cars.length, 1)) * 0.18;
-    const progress = (visualLapProgress - delayFraction + 1) % 1;
+    const lapProgress = car.lapsRemaining > 0 ? car.lapProgress : 0;
+    const progress = (lapProgress - delayFraction + 1) % 1;
     const angle = progress * Math.PI * 2;
     const carX = centerX + Math.cos(angle) * radiusX;
     const carY = centerY + Math.sin(angle) * radiusY;
-    trackContext.fillStyle = isActive
+    trackContext.fillStyle = car.lapsRemaining > 0
       ? `hsl(${(index * 60) % 360}, 80%, 60%)`
       : "rgba(140, 150, 170, 0.6)";
     trackContext.beginPath();
@@ -543,37 +537,23 @@ const advanceSharedLap = (timestamp) => {
   const deltaSeconds = Math.min((timestamp - lastFrameTime) / 1000, 0.2);
   lastFrameTime = timestamp;
 
-  const animationLapTime = state.sharedLapActive
-    ? state.sharedLapDuration
-    : getFastestLapTime();
-  visualLapProgress =
-    (visualLapProgress + deltaSeconds / Math.max(animationLapTime, 0.6)) % 1;
-
   let earnedIncome = 0;
   let earnedLaps = 0;
 
-  if (!state.sharedLapActive) {
-    startSharedLap();
-  }
-
-  if (state.sharedLapActive) {
-    if (state.sharedLapParticipants.length === 0) {
-      state.sharedLapActive = false;
-      state.sharedLapProgress = 0;
+  state.cars.forEach((car) => {
+    if (car.lapsRemaining <= 0) {
+      car.lapProgress = 0;
+      return;
     }
-    state.sharedLapProgress += deltaSeconds / Math.max(state.sharedLapDuration, 0.6);
-    while (state.sharedLapProgress >= 1 && state.sharedLapActive) {
-      state.sharedLapProgress -= 1;
-      state.sharedLapParticipants.forEach((index) => {
-        const car = state.cars[index];
-        if (!car || car.lapsRemaining <= 0) return;
-        car.lapsRemaining -= 1;
-        earnedLaps += 1;
-        earnedIncome += calculateLapIncome(car);
-      });
-      startSharedLap();
+    const lapTime = calculateLapTime(car);
+    car.lapProgress += deltaSeconds / Math.max(lapTime, 0.6);
+    while (car.lapProgress >= 1 && car.lapsRemaining > 0) {
+      car.lapProgress -= 1;
+      car.lapsRemaining -= 1;
+      earnedLaps += 1;
+      earnedIncome += calculateLapIncome(car);
     }
-  }
+  });
 
   if (earnedLaps > 0) {
     state.money += earnedIncome;
