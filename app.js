@@ -2,8 +2,6 @@ const storageKey = "car-revolutions-save";
 const maxOfflineHours = 8;
 
 const baseCarCost = 50;
-const baseSpeedUpgradeCost = 75;
-const baseIncomeUpgradeCost = 90;
 const baseCarSpeedUpgradeCost = 60;
 const baseCarIncomeUpgradeCost = 70;
 const baseCarGasUpgradeCost = 80;
@@ -20,8 +18,6 @@ const state = {
   money: 0,
   totalLaps: 0,
   cars: [{ speedLevel: 0, incomeLevel: 0, gasLevel: 0, lapsRemaining: 0, lapProgress: 0 }],
-  speedLevel: 0,
-  incomeLevel: 0,
   currentTrackIndex: 0,
   unlockedTracks: 1,
   prestige: 0,
@@ -40,8 +36,6 @@ const trackCanvas = document.getElementById("track-canvas");
 const trackContext = trackCanvas.getContext("2d");
 
 const buyCarButton = document.getElementById("buy-car");
-const speedButton = document.getElementById("upgrade-speed");
-const incomeButton = document.getElementById("upgrade-income");
 const prestigeButton = document.getElementById("prestige-reset");
 const carModal = document.getElementById("car-modal");
 const carModalTitle = document.getElementById("car-modal-title");
@@ -63,20 +57,18 @@ const formatNumber = (value) => {
 const calculateLapTime = (car) => {
   const baseLap = 4;
   const carBonus = car.speedLevel * 0.12;
-  const speedBonus = 1 + state.speedLevel * 0.12 + carBonus + state.prestige * 0.05;
+  const speedBonus = 1 + carBonus + state.prestige * 0.05;
   return Math.max(0.6, baseLap / speedBonus);
 };
 
 const calculateLapIncome = (car) => {
   const track = tracks[state.currentTrackIndex];
   const carBonus = car.incomeLevel * 0.15;
-  const incomeBonus = 1 + state.incomeLevel * 0.15 + carBonus + state.prestige * 0.08;
+  const incomeBonus = 1 + carBonus + state.prestige * 0.08;
   return track.multiplier * incomeBonus * 8;
 };
 
 const getCarCost = () => baseCarCost * Math.pow(1.6, state.cars.length - 1);
-const getSpeedCost = () => baseSpeedUpgradeCost * Math.pow(1.6, state.speedLevel);
-const getIncomeCost = () => baseIncomeUpgradeCost * Math.pow(1.6, state.incomeLevel);
 const getCarSpeedCost = (car) =>
   baseCarSpeedUpgradeCost * Math.pow(1.7, car.speedLevel);
 const getCarIncomeCost = (car) =>
@@ -137,7 +129,7 @@ const renderCars = () => {
   carListEl.innerHTML = "";
   state.cars.forEach((car, index) => {
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = "card clickable";
     const lapTime = calculateLapTime(car);
     const income = calculateLapIncome(car);
     card.innerHTML = `
@@ -150,18 +142,18 @@ const renderCars = () => {
         <p>Queued laps: ${car.lapsRemaining}</p>
       </div>
       <div class="card-actions">
-        <button class="small start-lap">Start Lap</button>
-        <button class="small settings">Settings</button>
+        <button class="small settings" type="button">Settings</button>
       </div>
     `;
-    const startLapButton = card.querySelector(".start-lap");
     const settingsButton = card.querySelector(".settings");
-    startLapButton.addEventListener("click", () => {
+    card.addEventListener("click", () => {
       car.lapsRemaining += 1 + car.gasLevel;
       render();
       save();
     });
-    settingsButton.addEventListener("click", () => {
+    settingsButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      settingsButton.blur();
       openCarModal(index);
     });
     carListEl.appendChild(card);
@@ -207,12 +199,8 @@ const renderTracks = () => {
 
 const renderButtons = () => {
   buyCarButton.textContent = `Buy New Car (${formatNumber(getCarCost())})`;
-  speedButton.textContent = `Upgrade (${formatNumber(getSpeedCost())})`;
-  incomeButton.textContent = `Upgrade (${formatNumber(getIncomeCost())})`;
 
   buyCarButton.disabled = state.money < getCarCost();
-  speedButton.disabled = state.money < getSpeedCost();
-  incomeButton.disabled = state.money < getIncomeCost();
 };
 
 const getFastestLapTime = () =>
@@ -269,6 +257,7 @@ const resizeCanvas = () => {
 };
 
 const drawTrack = (timestamp) => {
+  if (!trackContext) return;
   const { width, height } = trackCanvas.getBoundingClientRect();
   trackContext.clearRect(0, 0, width, height);
 
@@ -340,26 +329,6 @@ buyCarButton.addEventListener("click", () => {
   }
 });
 
-speedButton.addEventListener("click", () => {
-  const cost = getSpeedCost();
-  if (state.money >= cost) {
-    state.money -= cost;
-    state.speedLevel += 1;
-    render();
-    save();
-  }
-});
-
-incomeButton.addEventListener("click", () => {
-  const cost = getIncomeCost();
-  if (state.money >= cost) {
-    state.money -= cost;
-    state.incomeLevel += 1;
-    render();
-    save();
-  }
-});
-
 closeModalButton.addEventListener("click", closeCarModal);
 carModal.addEventListener("click", (event) => {
   if (event.target === carModal) {
@@ -412,8 +381,6 @@ prestigeButton.addEventListener("click", () => {
   state.money = 0;
   state.totalLaps = 0;
   state.cars = [{ speedLevel: 0, incomeLevel: 0, gasLevel: 0, lapsRemaining: 0, lapProgress: 0 }];
-  state.speedLevel = 0;
-  state.incomeLevel = 0;
   state.currentTrackIndex = 0;
   state.unlockedTracks = 1;
   render();
