@@ -500,8 +500,9 @@ const drawTrack = (timestamp) => {
 
   state.cars.forEach((car, index) => {
     const isActive = state.sharedLapParticipants.includes(index);
-    const angleOffset = (index * Math.PI * 2) / state.cars.length;
-    const angle = isActive ? baseAngle + angleOffset : angleOffset;
+    const delayFraction = (index / Math.max(state.cars.length, 1)) * 0.18;
+    const progress = (visualLapProgress - delayFraction + 1) % 1;
+    const angle = progress * Math.PI * 2;
     const carX = centerX + Math.cos(angle) * radiusX;
     const carY = centerY + Math.sin(angle) * radiusY;
     trackContext.fillStyle = isActive
