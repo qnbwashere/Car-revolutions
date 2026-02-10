@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Car Revolutions Idle</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>Car Revolutions Idle</h1>
+        <p class="subtitle">Idle racing manager for mobile + web. Earn laps, upgrade cars, unlock tracks.</p>
+      </header>
+
+      <section class="stats">
+        <div>
+          <span class="label">Money</span>
+          <span id="money">0</span>
+        </div>
+        <div>
+          <span class="label">Total Laps</span>
+          <span id="total-laps">0</span>
+        </div>
+        <div>
+          <span class="label">Current Track</span>
+          <span id="current-track">Beginner Oval</span>
+        </div>
+        <div>
+          <span class="label">Prestige</span>
+          <span id="prestige-level">0</span>
+        </div>
+        <div>
+          <span class="label">Account</span>
+          <span id="account-name">Not signed in</span>
+        </div>
+      </section>
+
+      <main>
+        <section class="panel track-panel">
+          <div class="track-header">
+            <div>
+              <h2>Track View</h2>
+              <p>Cars orbit the current track in real time.</p>
+            </div>
+          </div>
+          <canvas id="track-canvas" width="520" height="260"></canvas>
+        </section>
+        <section class="panel">
+          <h2>Cars</h2>
+          <p class="hint">Click a car card to run a lap.</p>
+          <div id="car-list" class="card-list"></div>
+          <button id="buy-car" class="primary">Buy New Car</button>
+        </section>
+        
+        <section class="panel">
+        <h2>Global Leaderboard</h2>
+        <div id="leaderboard"></div>
+      </section>
+
+
+        <section class="panel">
+          <h2>Tracks</h2>
+          <div id="track-list" class="card-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Season Reset</h2>
+          <p>Reset cars, tracks, and money for a permanent bonus.</p>
+          <button id="prestige-reset" class="danger">Reset Season</button>
+        </section>
+
+        <section class="panel">
+          <h2>Offline Progress</h2>
+          <p id="offline-summary">Loading offline progress...</p>
+        </section>
+
+        <section class="panel">
+          <h2>Cloud Save</h2>
+          <p>Progress can be synced to a Google Sheet for testing.</p>
+          <div class="card-actions inline">
+            <button id="sync-now" class="primary" type="button">Sync Now</button>
+            <button id="switch-account" type="button">Switch Account</button>
+          </div>
+          <p id="sync-status" class="hint">Cloud sync not configured.</p>
+        </section>
+      </main>
+    </div>
+
+    <div id="car-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="car-modal-title">Car Settings</h3>
+          <button id="close-modal" class="icon-button" aria-label="Close car settings">✕</button>
+        </div>
+        <div class="modal-body">
+          <p id="car-modal-stats"></p>
+          <div class="upgrade">
+            <div>
+              <h4>Speed Upgrade</h4>
+              <p>Increase this car's lap speed.</p>
+            </div>
+            <button id="car-speed-upgrade">Upgrade</button>
+          </div>
+          <div class="upgrade">
+            <div>
+              <h4>Income Upgrade</h4>
+              <p>Increase this car's lap earnings.</p>
+            </div>
+            <button id="car-income-upgrade">Upgrade</button>
+          </div>
+          <div class="upgrade">
+            <div>
+              <h4>Gas Mileage</h4>
+              <p>Increase how many laps this car can queue per click.</p>
+            </div>
+            <button id="car-gas-upgrade">Upgrade</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Create Account</h3>
+        </div>
+        <div class="modal-body">
+          <label class="form-field">
+            <span>Display name</span>
+            <input id="account-input" type="text" placeholder="Enter a name" />
+          </label>
+          <p class="hint">This name is used to save progress to the shared Google Sheet.</p>
+          <div class="card-actions inline">
+            <button id="save-account" class="primary" type="button">Save Account</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
